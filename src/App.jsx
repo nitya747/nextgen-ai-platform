@@ -320,6 +320,34 @@ function DataMiningVisual() {
   );
 }
 
+// Helper to find y coordinate on an SVG path for a given x coordinate using binary search
+const getPointAtX = (pathEl, targetX) => {
+  if (!pathEl) return { x: 0, y: 0 };
+  try {
+    const totalLength = pathEl.getTotalLength();
+    let start = 0;
+    let end = totalLength;
+    let precision = 8;
+    
+    while (precision > 0) {
+      const mid = (start + end) / 2;
+      const pt = pathEl.getPointAtLength(mid);
+      if (Math.abs(pt.x - targetX) < 0.5) {
+        return pt;
+      }
+      if (pt.x < targetX) {
+        start = mid;
+      } else {
+        end = mid;
+      }
+      precision--;
+    }
+    return pathEl.getPointAtLength((start + end) / 2);
+  } catch {
+    return { x: targetX, y: 50 }; // Fallback in case of error
+  }
+};
+
 function App() {
   // Global States
   const [loading, setLoading] = useState(true);
@@ -333,6 +361,17 @@ function App() {
   const [activeFaqCategory, setActiveFaqCategory] = useState('Overview');
   const [faqOpenIndex, setFaqOpenIndex] = useState(0);
   const [slaSlaSlider, setSlaSlider] = useState(85);
+  const [isVideoActive, setIsVideoActive] = useState(false);
+
+  // Telemetry Dashboard States
+  const [computeLoad, setComputeLoad] = useState(42);
+  const [activeNodes, setActiveNodes] = useState(14);
+  const [coreTemp, setCoreTemp] = useState(45);
+  const [slaValues, setSlaValues] = useState([65, 80, 50, 95, 70, 85]);
+  const [discoveryPct, setDiscoveryPct] = useState(70);
+  const [hoveredTokenSegment, setHoveredTokenSegment] = useState(null); // 'discovery' | 'analysis' | null
+  const [hoverPoint, setHoverPoint] = useState(null); // { x: number, y: number } or null
+  const pathRef = useRef(null);
 
   // Refs for Pricing Performance Isolation (Feature 1)
   const billingRef = useRef('monthly');
@@ -348,6 +387,8 @@ function App() {
   const canvasSphereRef = useRef(null);
   const matrixCanvasRef = useRef(null);
   const statsWaveRef = useRef(null);
+  const heroWaveCanvasRef = useRef(null);
+  const videoHoverRef = useRef(false);
 
   // Loader timing sequence (Phase 1)
   useEffect(() => {
@@ -356,6 +397,64 @@ function App() {
     }, 350);
     return () => clearTimeout(timer);
   }, []);
+
+  // Real-time Telemetry Data Stream Simulation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Fluctuate Compute Load between 38% and 46%
+      setComputeLoad(prev => {
+        const delta = Math.random() > 0.5 ? 1 : -1;
+        const next = prev + delta;
+        return next >= 38 && next <= 46 ? next : prev;
+      });
+
+      // Fluctuate Core Temperature between 42°C and 48°C
+      setCoreTemp(prev => {
+        const delta = Math.random() > 0.5 ? 1 : -1;
+        const next = prev + delta;
+        return next >= 42 && next <= 48 ? next : prev;
+      });
+
+      // Active Nodes: fluctuate active count between 12 and 16
+      setActiveNodes(prev => {
+        const delta = Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0;
+        const next = prev + delta;
+        return next >= 12 && next <= 16 ? next : prev;
+      });
+
+      // Fluctuate SLA history values slightly (D1-D6)
+      setSlaValues(prev => prev.map(val => {
+        const delta = Math.random() > 0.5 ? 1 : -1;
+        const next = val + delta * Math.floor(Math.random() * 3);
+        return next >= 40 && next <= 100 ? next : val;
+      }));
+
+      // Fluctuate Token Distribution: Discovery between 67% and 73%
+      setDiscoveryPct(prev => {
+        const delta = Math.random() > 0.5 ? 1 : -1;
+        const next = prev + delta;
+        return next >= 67 && next <= 73 ? next : prev;
+      });
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Growth Vector interactive hover tracking
+  const handleMouseMove = (e) => {
+    if (!pathRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 200; // viewBox width = 200
+    
+    // Constrain mouseX to path bounds
+    const x = Math.max(0, Math.min(200, mouseX));
+    const pt = getPointAtX(pathRef.current, x);
+    setHoverPoint({ x: pt.x, y: pt.y });
+  };
+
+  const handleMouseLeave = () => {
+    setHoverPoint(null);
+  };
 
   // Scroll handler for Header
   useEffect(() => {
@@ -388,6 +487,167 @@ function App() {
     updatePrices();
   }, []);
 
+  // 3D Interactive Hero Wave Canvas
+  useEffect(() => {
+    const canvas = heroWaveCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    let width = 0;
+    let height = 0;
+
+    const resize = () => {
+      width = canvas.parentElement ? canvas.parentElement.clientWidth : window.innerWidth;
+      height = canvas.parentElement ? canvas.parentElement.clientHeight : window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    let mouse = { x: -1000, y: -1000, targetX: -1000, targetY: -1000, active: false };
+    const handleMouseMove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.targetX = e.clientX - rect.left;
+      mouse.targetY = e.clientY - rect.top;
+      mouse.active = true;
+    };
+    const handleMouseLeave = () => {
+      mouse.targetX = -1000;
+      mouse.targetY = -1000;
+      mouse.active = false;
+    };
+
+    const section = canvas.closest('.hero-section') || canvas.parentElement || document.body;
+    section.addEventListener('mousemove', handleMouseMove);
+    section.addEventListener('mouseleave', handleMouseLeave);
+
+    // Grid size parameters optimized for fullscreen layout with reduced density
+    const numCols = 34;
+    const numRows = 24;
+    const spacing = 45;
+    let time = 0;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      if (mouse.active) {
+        mouse.x += (mouse.targetX - mouse.x) * 0.08;
+        mouse.y += (mouse.targetY - mouse.y) * 0.08;
+      } else {
+        mouse.x += (-1000 - mouse.x) * 0.08;
+        mouse.y += (-1000 - mouse.y) * 0.08;
+      }
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const rotY = -0.5 + (mouse.x - centerX) * 0.0004;
+      const rotX = 0.8 + (mouse.y - centerY) * 0.0004;
+
+      const points = [];
+      const cx = width / 2;
+      const cy = height / 2 + 120; // Shift down slightly to emphasize the perspective plane
+
+      for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+          const rx = (c - numCols / 2) * spacing;
+          const ry = (r - numRows / 2) * spacing;
+          
+          // Use indices for distance to keep wave scale independent of spacing size
+          const gc = c - numCols / 2;
+          const gr = r - numRows / 2;
+          const dGrid = Math.hypot(gc, gr);
+
+          let rz = Math.sin(dGrid * 0.28 - time * 0.02) * 42;
+          rz += Math.cos(gc * 0.16 + time * 0.015) * 14;
+          rz += Math.sin(gr * 0.2 - time * 0.01) * 8;
+
+          let x1 = rx * Math.cos(rotY) - rz * Math.sin(rotY);
+          let z1 = rx * Math.sin(rotY) + rz * Math.cos(rotY);
+          let y1 = ry;
+
+          let y2 = y1 * Math.cos(rotX) - z1 * Math.sin(rotX);
+          let z2 = y1 * Math.sin(rotX) + z1 * Math.cos(rotX);
+          let x2 = x1;
+
+          const fov = 450;
+          const scale = fov / (fov + z2);
+          const px = x2 * scale + cx;
+          const py = y2 * scale + cy;
+
+          let dx = 0;
+          let dy = 0;
+          if (mouse.active) {
+            const distMouse = Math.hypot(px - mouse.x, py - mouse.y);
+            if (distMouse < 180) {
+              const force = (180 - distMouse) / 180;
+              dy = force * force * -32 * Math.sin(time * 0.05 + distMouse * 0.03);
+              dx = force * force * 14 * Math.cos(time * 0.05 + distMouse * 0.03);
+            }
+          }
+
+          points.push({ x: px + dx, y: py + dy, z: z2 });
+        }
+      }
+
+      ctx.lineWidth = 1.0;
+
+      for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+          const idx = r * numCols + c;
+          const p = points[idx];
+
+          if (c < numCols - 1) {
+            const pRight = points[idx + 1];
+            const avgZ = (p.z + pRight.z) / 2;
+            const alpha = Math.max(0.01, Math.min(0.35, (450 - avgZ) / 900));
+            ctx.strokeStyle = `rgba(217, 232, 226, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(pRight.x, pRight.y);
+            ctx.stroke();
+          }
+
+          if (r < numRows - 1) {
+            const pDown = points[idx + numCols];
+            const avgZ = (p.z + pDown.z) / 2;
+            const alpha = Math.max(0.01, Math.min(0.35, (450 - avgZ) / 900));
+            ctx.strokeStyle = `rgba(217, 232, 226, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(pDown.x, pDown.y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      if (mouse.active) {
+        points.forEach(p => {
+          const distMouse = Math.hypot(p.x - mouse.x, p.y - mouse.y);
+          if (distMouse < 80) {
+            const ratio = 1 - distMouse / 80;
+            ctx.fillStyle = `rgba(255, 200, 1, ${ratio * 0.8})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 1.8 * ratio, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        });
+      }
+
+      time += 1;
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', resize);
+      section.removeEventListener('mousemove', handleMouseMove);
+      section.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, []);
+
   // Statistics Wave Animation (Phase 4)
   useEffect(() => {
     const canvas = statsWaveRef.current;
@@ -395,6 +655,11 @@ function App() {
     const ctx = canvas.getContext('2d');
     let animationFrameId;
     let phase = 0;
+
+    let currentAmplitudeMultiplier = 1;
+    let targetAmplitudeMultiplier = 1;
+    let currentSpeedMultiplier = 1;
+    let targetSpeedMultiplier = 1;
 
     const resize = () => {
       const rect = canvas.parentElement.getBoundingClientRect();
@@ -408,17 +673,24 @@ function App() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.lineWidth = 1.5;
 
+      // Smoothly interpolate multipliers
+      targetAmplitudeMultiplier = videoHoverRef.current ? 1.5 : 1.0;
+      targetSpeedMultiplier = videoHoverRef.current ? 1.8 : 1.0;
+
+      currentAmplitudeMultiplier += (targetAmplitudeMultiplier - currentAmplitudeMultiplier) * 0.1;
+      currentSpeedMultiplier += (targetSpeedMultiplier - currentSpeedMultiplier) * 0.1;
+
       for (let w = 0; w < 3; w++) {
         ctx.beginPath();
-        const amplitude = 30 + w * 10;
+        const amplitude = (30 + w * 10) * currentAmplitudeMultiplier;
         const frequency = 0.003 - w * 0.0005;
-        const speed = 0.02 + w * 0.01;
+        const speed = (0.02 + w * 0.01) * currentSpeedMultiplier;
         
         ctx.strokeStyle = w === 0 
-          ? 'rgba(217, 232, 226, 0.03)' 
+          ? 'rgba(217, 232, 226, 0.18)' 
           : w === 1 
-          ? 'rgba(17, 76, 90, 0.08)' 
-          : 'rgba(255, 200, 1, 0.03)';
+          ? 'rgba(17, 76, 90, 0.4)' 
+          : 'rgba(255, 200, 1, 0.18)';
 
         for (let x = 0; x < canvas.width; x++) {
           const y = canvas.height / 2 + Math.sin(x * frequency + phase * speed) * amplitude * Math.sin(x / canvas.width * Math.PI);
@@ -762,10 +1034,10 @@ function App() {
       <header className={scrolled ? 'scrolled' : ''}>
         <div className="container header-container">
           <a href="#" className="logo-link">
-            <svg className="logo-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <use href="/icons.svg#icon-cloud-scale"></use>
+            <svg className="logo-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M6 2L18 2L14 11L20 11L8 22L10 13L4 13L6 2Z" />
             </svg>
-            <span>ARMORY</span>
+            <span>armory</span>
           </a>
           <nav aria-label="Main Navigation">
             <ul className="nav-links">
@@ -790,8 +1062,8 @@ function App() {
             aria-label="Toggle Menu"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
-            <svg className="mobile-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
+            <svg className="mobile-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
             </svg>
           </button>
         </div>
@@ -826,30 +1098,59 @@ function App() {
       <main>
         {/* Hero Section */}
         <section className="hero-section">
-          <div className="container hero-content">
-            <h1 className="hero-title text-gradient">Power your future<br />with AI automation</h1>
-            <p className="hero-description">
-              Unleash autonomous workflows, scale-free database indexing, and hardware-accelerated agent pipelines built on top of our enterprise-grade security substrate.
-            </p>
-            <div className="hero-ctas">
-              <button className="btn-primary" type="button">
-                <span>Start Free Trial</span>
-                <svg className="cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </button>
-              <button className="btn-secondary" type="button">Request Demo</button>
-            </div>
+          {/* Background 3D Wave Canvas */}
+          <div className="hero-canvas-background">
+            <canvas ref={heroWaveCanvasRef} className="hero-wave-canvas"></canvas>
           </div>
 
-          {/* Client Marquee */}
-          <div className="client-marquee">
-            <div className="container">
-              <div className="marquee-title">Trusted by industry scale leaders</div>
-              <div className="marquee-track">
-                {['Aetna', 'Cigna', 'Anthem', 'UnitedHealth', 'Humana', 'BlueCross', 'Aetna', 'Cigna', 'Anthem', 'UnitedHealth', 'Humana', 'BlueCross'].map((name, idx) => (
-                  <div key={idx} className="marquee-item">{name}</div>
-                ))}
+          <div className="container">
+            {/* Split Grid Layout */}
+            <div className="hero-split-grid">
+              {/* Left Area: Heading, Subheading & CTAs */}
+              <div className="hero-left-content">
+                <h1 className="hero-title">Power your<br />future with AI</h1>
+                <p className="hero-description">
+                  Deploy custom enterprise agents and automate complex workflows. Scale your intelligence with Armory today.
+                </p>
+                <div className="hero-ctas">
+                  <button className="cta-build-workflow" type="button">
+                    <span className="btn-icon">[::]</span>
+                    <span>Build A Workflow</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Area: Pillars & Client Logos */}
+              <div className="hero-right-content">
+                <div className="hero-pillars-list">
+                  <div className="hero-pillar-item">AI Strategy</div>
+                  <div className="hero-pillar-item">Custom Agents</div>
+                  <div className="hero-pillar-item">Process Automation</div>
+                  <div className="hero-pillar-item">Data Intelligence</div>
+                </div>
+
+                <div className="hero-client-logos">
+                  <div className="client-logo-item" title="Aetna">
+                    <svg viewBox="0 0 100 24" className="client-logo-svg" fill="currentColor">
+                      <path d="M12 5 C9 2, 5 5.5, 9.5 9.5 L12 12 L14.5 9.5 C19 5.5, 15 2, 12 5 Z" fill="#ffffff" />
+                      <text x="22" y="17" fontSize="16" fontWeight="800" fontFamily="var(--font-sans)" fill="#ffffff" letterSpacing="-0.03em">aetna</text>
+                    </svg>
+                  </div>
+                  <div className="client-logo-item" title="Cigna">
+                    <svg viewBox="0 0 100 24" className="client-logo-svg" fill="currentColor">
+                      <circle cx="10" cy="7" r="2.5" fill="#ffffff" />
+                      <path d="M10 10.5 C7 10.5, 5 12.5, 5 15.5 L15 15.5 C15 12.5, 13 10.5, 10 10.5 Z" fill="#ffffff" />
+                      <path d="M10 15.5 L10 21" stroke="#ffffff" strokeWidth="1.5" />
+                      <text x="22" y="17" fontSize="16" fontWeight="800" fontFamily="var(--font-sans)" fill="#ffffff" letterSpacing="-0.03em">cigna</text>
+                    </svg>
+                  </div>
+                  <div className="client-logo-item" title="Anthem">
+                    <svg viewBox="0 0 100 24" className="client-logo-svg" fill="currentColor">
+                      <path d="M10 3 L3 19 L8 19 L10 14.5 L15 14.5 L17 19 L22 19 L15 3 Z M12.5 7.5 L14 11.5 L11 11.5 Z" fill="#ffffff" />
+                      <text x="26" y="17" fontSize="16" fontWeight="800" fontFamily="var(--font-sans)" fill="#ffffff" letterSpacing="-0.03em">Anthem</text>
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1001,8 +1302,16 @@ function App() {
             </div>
 
             <div className="video-container-wrapper">
-              <canvas ref={statsWaveRef} className="stats-wave-canvas" style={{ display: 'none' }}></canvas>
-              <div className="video-placeholder">
+              <canvas 
+                ref={statsWaveRef} 
+                className={`stats-wave-canvas ${isVideoActive ? 'hidden' : ''}`}
+              ></canvas>
+              <div 
+                className={`video-placeholder ${isVideoActive ? 'hidden' : ''}`} 
+                onClick={() => setIsVideoActive(true)}
+                onMouseEnter={() => { videoHoverRef.current = true; }}
+                onMouseLeave={() => { videoHoverRef.current = false; }}
+              >
                 <div className="video-bg-wave"></div>
                 <div className="play-button">
                   <svg className="play-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1011,6 +1320,28 @@ function App() {
                 </div>
                 <div className="video-title">EXPLORE THE ARCHITECTURE</div>
               </div>
+              {isVideoActive && (
+                <div className="video-player-wrapper">
+                  <video
+                    src="/demo.mp4"
+                    className="architecture-video"
+                    controls
+                    autoPlay
+                  />
+                  <button 
+                    className="close-video-btn" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsVideoActive(false);
+                    }}
+                    aria-label="Close video"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                      <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -1036,6 +1367,9 @@ function App() {
                     <div className="node node-3"></div>
                     <svg className="connector-line" viewBox="0 0 200 100">
                       <path d="M20,50 Q100,20 180,50" fill="none" stroke="var(--color-nocturnal-expedition)" strokeWidth="2" strokeDasharray="5,5" />
+                      <circle r="4" fill="var(--color-mystic-mint)">
+                        <animateMotion dur="3s" repeatCount="indefinite" path="M20,50 Q100,20 180,50" />
+                      </circle>
                     </svg>
                     <span className="graphic-label">CLAIM STREAM INGESTION</span>
                   </div>
@@ -1135,12 +1469,23 @@ function App() {
               <div className="telemetry-card">
                 <h3 className="telemetry-card-title">Compute Cluster Load</h3>
                 <div className="load-tracker-visual">
-                  <div className="load-ring">
-                    <span className="load-val">42%</span>
+                  <div className="load-ring-wrapper">
+                    <svg className="load-ring-svg" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="40" className="load-ring-bg" />
+                      <circle 
+                        cx="50" 
+                        cy="50" 
+                        r="40" 
+                        className="load-ring-fg" 
+                        strokeDasharray="251.2" 
+                        strokeDashoffset={251.2 - (251.2 * computeLoad) / 100}
+                      />
+                    </svg>
+                    <span className="load-val">{computeLoad}%</span>
                   </div>
                   <div className="load-details">
-                    <div className="load-stat"><span className="label">Nodes Active:</span> <span className="val accent-text">14 / 32</span></div>
-                    <div className="load-stat"><span className="label">Core Temp:</span> <span className="val accent-text">45°C</span></div>
+                    <div className="load-stat"><span className="label">Nodes Active:</span> <span className="val accent-text">{activeNodes} / 32</span></div>
+                    <div className="load-stat"><span className="label">Core Temp:</span> <span className="val accent-text">{coreTemp}°C</span></div>
                   </div>
                 </div>
               </div>
@@ -1152,10 +1497,19 @@ function App() {
                   <span className="slider-val accent-text">{slaSlaSlider}%</span>
                 </div>
                 <div className="sla-chart-container">
+                  <div className="sla-grid-lines">
+                    <div className="sla-grid-line"></div>
+                    <div className="sla-grid-line"></div>
+                    <div className="sla-grid-line"></div>
+                    <div className="sla-grid-line"></div>
+                  </div>
                   <div className="sla-bars-wrapper">
-                    {[65, 80, 50, 95, 70, 85, slaSlaSlider].map((val, idx) => (
+                    {[...slaValues, slaSlaSlider].map((val, idx) => (
                       <div key={idx} className="sla-bar-col">
-                        <div className="sla-bar-value" style={{ height: `${val}%` }}></div>
+                        <div className="sla-bar-value-wrapper">
+                          <span className="sla-bar-tooltip">{val}%</span>
+                          <div className="sla-bar-value" style={{ height: `${val}%` }}></div>
+                        </div>
                         <span className="sla-bar-label">D{idx+1}</span>
                       </div>
                     ))}
@@ -1178,13 +1532,71 @@ function App() {
               <div className="telemetry-card">
                 <h3 className="telemetry-card-title">Token Distribution</h3>
                 <div className="token-usage-visual">
-                  <svg className="token-pie-svg" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-nocturnal-expedition)" strokeWidth="15" />
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="var(--color-forsythia)" strokeWidth="15" strokeDasharray="251" strokeDashoffset="75" />
-                  </svg>
+                  <div className="donut-chart-wrapper">
+                    <svg className="token-pie-svg" viewBox="0 0 100 100">
+                      <circle 
+                        cx="50" 
+                        cy="50" 
+                        r="40" 
+                        fill="transparent" 
+                        stroke="var(--color-nocturnal-expedition)" 
+                        strokeWidth="15" 
+                        className={`donut-segment segment-analysis ${hoveredTokenSegment === 'analysis' ? 'active' : ''}`}
+                        onMouseEnter={() => setHoveredTokenSegment('analysis')}
+                        onMouseLeave={() => setHoveredTokenSegment(null)}
+                        style={{ '--segment-color': 'var(--color-nocturnal-expedition)' }}
+                      />
+                      <circle 
+                        cx="50" 
+                        cy="50" 
+                        r="40" 
+                        fill="transparent" 
+                        stroke="var(--color-forsythia)" 
+                        strokeWidth="15" 
+                        strokeDasharray="251.2" 
+                        strokeDashoffset={251.2 - (251.2 * discoveryPct) / 100}
+                        className={`donut-segment segment-discovery ${hoveredTokenSegment === 'discovery' ? 'active' : ''}`}
+                        onMouseEnter={() => setHoveredTokenSegment('discovery')}
+                        onMouseLeave={() => setHoveredTokenSegment(null)}
+                        style={{ '--segment-color': 'var(--color-forsythia)' }}
+                      />
+                    </svg>
+                    <div className="donut-center-text">
+                      {hoveredTokenSegment === 'discovery' ? (
+                        <>
+                          <span className="donut-val">{discoveryPct}%</span>
+                          <span className="donut-lbl">Discovery</span>
+                        </>
+                      ) : hoveredTokenSegment === 'analysis' ? (
+                        <>
+                          <span className="donut-val">{100 - discoveryPct}%</span>
+                          <span className="donut-lbl">Analysis</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="donut-val">100%</span>
+                          <span className="donut-lbl">Active</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
                   <div className="token-legend">
-                    <div className="legend-item"><span className="dot dot-yellow"></span> <span>Discovery (70%)</span></div>
-                    <div className="legend-item"><span className="dot dot-teal"></span> <span>Analysis (30%)</span></div>
+                    <div 
+                      className={`legend-item ${hoveredTokenSegment === 'discovery' ? 'active' : ''}`}
+                      onMouseEnter={() => setHoveredTokenSegment('discovery')}
+                      onMouseLeave={() => setHoveredTokenSegment(null)}
+                    >
+                      <span className="dot dot-yellow"></span> 
+                      <span>Discovery ({discoveryPct}%)</span>
+                    </div>
+                    <div 
+                      className={`legend-item ${hoveredTokenSegment === 'analysis' ? 'active' : ''}`}
+                      onMouseEnter={() => setHoveredTokenSegment('analysis')}
+                      onMouseLeave={() => setHoveredTokenSegment(null)}
+                    >
+                      <span className="dot dot-teal"></span> 
+                      <span>Analysis ({100 - discoveryPct}%)</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1192,10 +1604,38 @@ function App() {
               {/* Growth Vector Line Chart */}
               <div className="telemetry-card">
                 <h3 className="telemetry-card-title">Growth Vector</h3>
-                <div className="growth-vector-visual">
+                <div className="growth-vector-visual" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}>
                   <svg className="growth-line-svg" viewBox="0 0 200 100">
-                    <path d="M 0 90 Q 40 80 80 50 T 160 20 T 200 10" fill="none" stroke="var(--color-forsythia)" strokeWidth="3" className="animated-path" />
+                    <path 
+                      ref={pathRef}
+                      d="M 0 90 Q 40 80 80 50 T 160 20 T 200 10" 
+                      fill="none" 
+                      stroke="var(--color-forsythia)" 
+                      strokeWidth="3" 
+                      className="animated-path" 
+                    />
                     <path d="M 0 90 Q 40 80 80 50 T 160 20 T 200 10 L 200 100 L 0 100 Z" fill="url(#growth-gradient)" opacity="0.1" />
+                    
+                    {hoverPoint && (
+                      <>
+                        <line 
+                          x1={hoverPoint.x} 
+                          y1={hoverPoint.y} 
+                          x2={hoverPoint.x} 
+                          y2="100" 
+                          stroke="rgba(255, 200, 1, 0.3)" 
+                          strokeWidth="1" 
+                          strokeDasharray="2,2" 
+                        />
+                        <circle cx={hoverPoint.x} cy={hoverPoint.y} r="8" fill="var(--color-forsythia)" opacity="0.2" />
+                        <circle cx={hoverPoint.x} cy={hoverPoint.y} r="4" fill="var(--color-forsythia)" />
+                      </>
+                    )}
+                    
+                    {!hoverPoint && (
+                      <circle cx="200" cy="10" r="4" fill="var(--color-forsythia)" className="growth-pulse-dot" />
+                    )}
+                    
                     <defs>
                       <linearGradient id="growth-gradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="var(--color-forsythia)" />
@@ -1203,8 +1643,25 @@ function App() {
                       </linearGradient>
                     </defs>
                   </svg>
+                  
+                  {hoverPoint && (
+                    <div 
+                      className="growth-tooltip" 
+                      style={{ 
+                        left: `${(hoverPoint.x / 200) * 100}%`,
+                        top: `${(hoverPoint.y / 100) * 100}%` 
+                      }}
+                    >
+                      +{Math.round(10 + ((90 - hoverPoint.y) / 80) * 235)}%
+                    </div>
+                  )}
+                  
                   <div className="growth-labels">
-                    <span className="accent-text">+245% Year-to-date</span>
+                    <span className="accent-text">
+                      {hoverPoint 
+                        ? `+${Math.round(10 + ((90 - hoverPoint.y) / 80) * 235)}% Growth` 
+                        : '+245% Year-to-date'}
+                    </span>
                   </div>
                 </div>
               </div>

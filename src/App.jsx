@@ -349,119 +349,12 @@ function App() {
   const matrixCanvasRef = useRef(null);
   const statsWaveRef = useRef(null);
 
-  // Kashflow Custom Refs
-  const titleShifterRef = useRef(null);
-  const nodeCountRef = useRef(null);
-  const logPanelRef = useRef(null);
-  const forecastCanvasRef = useRef(null);
-  const runwayValRef = useRef(null);
-  const costValRef = useRef(null);
-  const aiAdviseRef = useRef(null);
-  const sliderAllocationRef = useRef(50);
-  const drawChartRef = useRef(null);
-
   // Loader timing sequence (Phase 1)
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
     }, 350);
     return () => clearTimeout(timer);
-  }, []);
-
-  // Spotlight grid coordinates tracking
-  useEffect(() => {
-    const heroSection = document.querySelector('.hero-section');
-    if (!heroSection) return;
-    const handleMouseMove = (e) => {
-      const rect = heroSection.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      heroSection.style.setProperty('--hero-mouse-x', `${x}px`);
-      heroSection.style.setProperty('--hero-mouse-y', `${y}px`);
-    };
-    heroSection.addEventListener('mousemove', handleMouseMove);
-    return () => heroSection.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  // Headline dynamic text shifter
-  useEffect(() => {
-    const shifter = titleShifterRef.current;
-    if (!shifter) return;
-    const words = ["Intelligence.", "Workflows.", "Scale.", "Security."];
-    let currentIndex = 0;
-    const interval = setInterval(() => {
-      shifter.classList.add('fade-out');
-      setTimeout(() => {
-        currentIndex = (currentIndex + 1) % words.length;
-        shifter.textContent = words[currentIndex];
-        if (words[currentIndex] === "Intelligence.") {
-          shifter.style.color = "var(--color-forsythia)";
-        } else if (words[currentIndex] === "Workflows.") {
-          shifter.style.color = "var(--color-mystic-mint)";
-        } else if (words[currentIndex] === "Scale.") {
-          shifter.style.color = "var(--color-deep-saffron)";
-        } else if (words[currentIndex] === "Security.") {
-          shifter.style.color = "#39e58c";
-        }
-        shifter.classList.remove('fade-out');
-        shifter.classList.add('fade-in');
-        setTimeout(() => {
-          shifter.classList.remove('fade-in');
-        }, 300);
-      }, 300);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Live node counter fluctuation
-  useEffect(() => {
-    const textNode = nodeCountRef.current;
-    if (!textNode) return;
-    let baseCount = 1482;
-    const interval = setInterval(() => {
-      const diff = Math.floor(Math.random() * 9) - 4;
-      baseCount = Math.max(1400, Math.min(1600, baseCount + diff));
-      textNode.textContent = `Active Pipeline nodes: ${baseCount.toLocaleString()}`;
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Mini HUD log streams feed
-  useEffect(() => {
-    const logPanel = logPanelRef.current;
-    if (!logPanel) return;
-    const logs = [
-      { text: "CORE-ENGINE >> initializing cluster nodes...", type: "info" },
-      { text: "SEC-01 >> Guardrail active: edge PII scrub complete", type: "success" },
-      { text: "AGT-02 >> Orchestrating task handoff: Node-14 -> Node-29", type: "info" },
-      { text: "CLD-03 >> Scaling Scheduler load: +12% capacity", type: "info" },
-      { text: "DTA-04 >> Vector index synced: 1,482 telemetry docs", type: "success" },
-      { text: "SYS >> Latency nominal at 12ms", type: "success" },
-      { text: "SYS-WARN >> Buffer capacity at 64% - optimizing paths", type: "warning" },
-      { text: "CORE-ENGINE >> Recalibrating reinforcement policy weights", type: "info" },
-      { text: "SEC-01 >> Telemetry encryption key rotated successfully", type: "success" },
-      { text: "CLD-03 >> Node-1482 online: 150ms cold start time", type: "success" }
-    ];
-    const interval = setInterval(() => {
-      const log = logs[Math.floor(Math.random() * logs.length)];
-      const line = document.createElement('div');
-      line.className = 'hud-log-line';
-      const tag = document.createElement('span');
-      tag.className = 'hud-log-tag';
-      tag.textContent = `[${new Date().toLocaleTimeString()}]`;
-      const content = document.createElement('span');
-      content.textContent = ` ${log.text}`;
-      if (log.type === 'success') content.className = 'hud-log-success';
-      if (log.type === 'warning') content.className = 'hud-log-warning';
-      line.appendChild(tag);
-      line.appendChild(content);
-      logPanel.appendChild(line);
-      logPanel.scrollTop = logPanel.scrollHeight;
-      while (logPanel.childNodes.length > 15) {
-        logPanel.removeChild(logPanel.firstChild);
-      }
-    }, 1800);
-    return () => clearInterval(interval);
   }, []);
 
   // Scroll handler for Header
@@ -791,274 +684,6 @@ function App() {
     };
   }, []);
 
-  // Kashflow Forecast Chart Canvas Animation
-  useEffect(() => {
-    const canvas = forecastCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    const drawChart = (allocation, mouseX = null) => {
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      // Draw background grid lines
-      ctx.strokeStyle = 'rgba(217, 232, 226, 0.035)';
-      ctx.lineWidth = 1;
-      const gridCols = 8;
-      const gridRows = 5;
-      for (let i = 0; i <= gridCols; i++) {
-        const x = (w / gridCols) * i;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h - 20);
-        ctx.stroke();
-      }
-      for (let i = 0; i <= gridRows; i++) {
-        const y = ((h - 20) / gridRows) * i;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-      }
-
-      // Y-Axis Labels
-      ctx.fillStyle = 'rgba(241, 246, 244, 0.3)';
-      ctx.font = '9px monospace';
-      ctx.textAlign = 'right';
-      const currencySymbol = currencyRef.current === 'EUR' ? '€' : currencyRef.current === 'INR' ? '₹' : '$';
-      const multiplier = currencyRef.current === 'INR' ? 80 : currencyRef.current === 'EUR' ? 0.9 : 1.0;
-
-      ctx.fillText(`${currencySymbol}${Math.round(800 * multiplier)}k`, w - 10, 25);
-      ctx.fillText(`${currencySymbol}${Math.round(400 * multiplier)}k`, w - 10, (h - 20) / 2 + 5);
-      ctx.fillText(`${currencySymbol}0`, w - 10, h - 25);
-
-      // X-Axis Labels (Months)
-      ctx.textAlign = 'center';
-      ctx.fillText('M-6', 40, h - 5);
-      ctx.fillText('M0', w / 3, h - 5);
-      ctx.fillText('M12', (w / 3) * 2, h - 5);
-      ctx.fillText('M24', w - 50, h - 5);
-
-      // Generate Curve points
-      const points = [];
-      const numPoints = 100;
-      const midX = w / 3;
-      const factor = (allocation - 50) / 50; // -1 to +1
-
-      for (let i = 0; i <= numPoints; i++) {
-        const pct = i / numPoints;
-        const x = pct * w;
-        let y;
-
-        if (x < midX) {
-          y = (h - 20) * 0.5 + Math.sin(pct * Math.PI * 2) * 15;
-        } else {
-          const projPct = (x - midX) / (w - midX);
-          const baseline = (h - 20) * 0.5 + Math.sin((midX / w) * Math.PI * 2) * 15;
-          y = baseline + projPct * 50 * -factor + Math.pow(projPct, 2) * 60 * -factor;
-          y = Math.max(15, Math.min(h - 25, y));
-        }
-        points.push({ x, y });
-      }
-
-      // Draw shaded area under historical path
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, h - 20);
-      for (let i = 0; i < points.length; i++) {
-        if (points[i].x <= midX) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-      }
-      ctx.lineTo(midX, h - 20);
-      ctx.closePath();
-      const histGrad = ctx.createLinearGradient(0, 0, 0, h);
-      histGrad.addColorStop(0, 'rgba(217, 232, 226, 0.08)');
-      histGrad.addColorStop(1, 'rgba(217, 232, 226, 0)');
-      ctx.fillStyle = histGrad;
-      ctx.fill();
-
-      // Draw shaded area under projected path
-      ctx.beginPath();
-      ctx.moveTo(midX, h - 20);
-      for (let i = 0; i < points.length; i++) {
-        if (points[i].x >= midX) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-      }
-      ctx.lineTo(w, h - 20);
-      ctx.closePath();
-      const projGrad = ctx.createLinearGradient(0, 0, 0, h);
-      if (factor >= 0) {
-        projGrad.addColorStop(0, 'rgba(255, 200, 1, 0.08)');
-      } else {
-        projGrad.addColorStop(0, 'rgba(255, 153, 50, 0.08)');
-      }
-      projGrad.addColorStop(1, 'rgba(255, 200, 1, 0)');
-      ctx.fillStyle = projGrad;
-      ctx.fill();
-
-      // Draw Historical Line (solid mint)
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 0; i < points.length; i++) {
-        if (points[i].x <= midX) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-      }
-      ctx.strokeStyle = '#D9E8E2';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-
-      // Draw Projected Line (dashed gold/saffron)
-      ctx.beginPath();
-      ctx.setLineDash([5, 5]);
-      ctx.moveTo(midX, points[Math.floor(numPoints * (midX / w))].y);
-      for (let i = 0; i < points.length; i++) {
-        if (points[i].x >= midX) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-      }
-      ctx.strokeStyle = factor >= 0 ? '#FFC801' : '#FF9932';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-      ctx.setLineDash([]); // Reset
-
-      // Draw transition node marker at M0
-      const m0Pt = points[Math.floor(numPoints * (midX / w))];
-      ctx.beginPath();
-      ctx.arc(m0Pt.x, m0Pt.y, 6, 0, 2 * Math.PI);
-      ctx.fillStyle = '#172B36';
-      ctx.fill();
-      ctx.strokeStyle = '#FFC801';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // Active pulse halo around marker
-      ctx.beginPath();
-      ctx.arc(m0Pt.x, m0Pt.y, 10, 0, 2 * Math.PI);
-      ctx.strokeStyle = 'rgba(255, 200, 1, 0.2)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Draw vertical tracking cursor line if mouse is over canvas
-      if (mouseX !== null && mouseX >= 0 && mouseX <= w) {
-        let closestPt = points[0];
-        let minDist = Infinity;
-        points.forEach(pt => {
-          const dist = Math.abs(pt.x - mouseX);
-          if (dist < minDist) {
-            minDist = dist;
-            closestPt = pt;
-          }
-        });
-
-        ctx.beginPath();
-        ctx.moveTo(closestPt.x, 0);
-        ctx.lineTo(closestPt.x, h - 20);
-        ctx.strokeStyle = 'rgba(217, 232, 226, 0.15)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(closestPt.x, closestPt.y, 4, 0, 2 * Math.PI);
-        ctx.fillStyle = closestPt.x < midX ? '#D9E8E2' : '#FFC801';
-        ctx.fill();
-
-        const balanceVal = Math.round((1 - closestPt.y / (h - 20)) * 800 * multiplier);
-        const isHistorical = closestPt.x < midX;
-        const monthNum = Math.round((closestPt.x / w) * 30 - 6);
-
-        ctx.fillStyle = 'rgba(14, 27, 34, 0.9)';
-        ctx.strokeStyle = 'rgba(217, 232, 226, 0.12)';
-        ctx.lineWidth = 1;
-
-        const boxW = 100;
-        const boxH = 34;
-        let boxX = closestPt.x - boxW / 2;
-        let boxY = closestPt.y - 45;
-
-        boxX = Math.max(10, Math.min(w - boxW - 10, boxX));
-        boxY = Math.max(10, boxY);
-
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxW, boxH, 4);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.fillStyle = '#F1F6F4';
-        ctx.font = '9px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Month: M${monthNum >= 0 ? '+' + monthNum : monthNum}`, boxX + 8, boxY + 12);
-        ctx.fillStyle = isHistorical ? '#D9E8E2' : '#FFC801';
-        ctx.fillText(`Cash: ${currencySymbol}${balanceVal}k`, boxX + 8, boxY + 24);
-      }
-    };
-
-    drawChartRef.current = drawChart;
-
-    const resizeCanvas = () => {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = 220;
-      drawChart(sliderAllocationRef.current);
-    };
-
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    const handleMouseMove = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      drawChart(sliderAllocationRef.current, mouseX);
-    };
-
-    const handleMouseLeave = () => {
-      drawChart(sliderAllocationRef.current);
-    };
-
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('mouseleave', handleMouseLeave);
-    };
-  }, []);
-
-  const handleSliderChange = (e) => {
-    const val = parseInt(e.target.value);
-    sliderAllocationRef.current = val;
-    const currencyKey = currencyRef.current;
-    const rate = PRICING_MATRIX.currencies[currencyKey].rate;
-    const symbol = PRICING_MATRIX.currencies[currencyKey].symbol;
-    const projectedRunway = Math.round((val - 10) * 0.45 + 6);
-    if (runwayValRef.current) {
-      runwayValRef.current.textContent = `${projectedRunway} Months`;
-    }
-    const baseCost = 42.5 - (val - 10) * 0.428;
-    const localCost = Math.round(baseCost * rate * 10) / 10;
-    if (costValRef.current) {
-      costValRef.current.textContent = `${symbol}${localCost}k/mo`;
-    }
-    if (aiAdviseRef.current) {
-      if (val < 35) {
-        aiAdviseRef.current.textContent = `SYSTEM ALERT >> High resource footprint detected. Runway compromised. Consider optimizing nodes to reduce cost overhead.`;
-        aiAdviseRef.current.style.color = "var(--color-deep-saffron)";
-      } else if (val > 65) {
-        aiAdviseRef.current.textContent = `AI ADVISOR >> Maximum efficiency configuration active. Telemetry bandwidth optimal. Projected annual savings: ${symbol}${Math.round(180 * rate)}k.`;
-        aiAdviseRef.current.style.color = "#39e58c";
-      } else {
-        aiAdviseRef.current.textContent = `AI ADVISOR >> Performance balanced. Allocation grid running at ${val}% capacity. Telemetry flows nominal.`;
-        aiAdviseRef.current.style.color = "var(--color-mystic-mint)";
-      }
-    }
-    if (drawChartRef.current) {
-      drawChartRef.current(val);
-    }
-  };
-
   // Isolated direct DOM updates for pricing (Feature 1)
   const updatePrices = () => {
     const currencyKey = currencyRef.current;
@@ -1085,30 +710,16 @@ function App() {
         periodRefs.current[tierKey].textContent = billingCycle === 'annual' ? '/mo, billed annually' : '/mo';
       }
     });
-
-    // Update the cost tile value in the dashboard
-    const val = sliderAllocationRef.current;
-    const baseCost = 42.5 - (val - 10) * 0.428;
-    const localCost = Math.round(baseCost * rate * 10) / 10;
-    if (costValRef.current) {
-      costValRef.current.textContent = `${symbol}${localCost}k/mo`;
-    }
   };
 
   const handleBillingChange = (e) => {
     billingRef.current = e.target.checked ? 'annual' : 'monthly';
     updatePrices();
-    if (drawChartRef.current) {
-      drawChartRef.current(sliderAllocationRef.current);
-    }
   };
 
   const handleCurrencyChange = (e) => {
     currencyRef.current = e.target.value;
     updatePrices();
-    if (drawChartRef.current) {
-      drawChartRef.current(sliderAllocationRef.current);
-    }
   };
 
   // Bento Card hover handlers
@@ -1215,210 +826,30 @@ function App() {
       <main>
         {/* Hero Section */}
         <section className="hero-section">
-          {/* Spotlight Background Grid Layer */}
-          <div className="console-backlight" aria-hidden="true"></div>
-          
-          <div className="container hero-content-center">
-            {/* Live Ticker Status Badge */}
-            <div className="hero-badge">
-              <span className="badge-pulse"></span>
-              <span ref={nodeCountRef} className="badge-text">Active Pipeline nodes: 1,482</span>
-            </div>
-            
-            {/* Animated Text-Shifter Title */}
-            <h1 className="hero-title text-gradient">
-              Automate Data.<br />
-              Orchestrate <span ref={titleShifterRef} className="title-shifted-word">Intelligence.</span>
-            </h1>
-            
+          <div className="container hero-content">
+            <h1 className="hero-title text-gradient">Power your future<br />with AI automation</h1>
             <p className="hero-description">
-              Deploy autonomous AI workflows, scale-free database routing, and hardware-accelerated agent systems with zero component reflows.
+              Unleash autonomous workflows, scale-free database indexing, and hardware-accelerated agent pipelines built on top of our enterprise-grade security substrate.
             </p>
-            
             <div className="hero-ctas">
-              <button className="btn-primary-split" type="button">
-                <span className="btn-icon-box">
-                  <svg className="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </span>
-                <span className="btn-text">Build a Workflow</span>
+              <button className="btn-primary" type="button">
+                <span>Start Free Trial</span>
+                <svg className="cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
               </button>
-              <a href="#pricing" className="btn-secondary-link">
-                <span>View Pricing Matrix</span>
-              </a>
+              <button className="btn-secondary" type="button">Request Demo</button>
             </div>
+          </div>
 
-            {/* Glassmorphic Kashflow Command Console */}
-            <div className="command-center-console">
-              {/* Console Control Header */}
-              <div className="console-header">
-                <div className="console-header-left">
-                  <div className="console-status-pill">
-                    <span className="console-status-dot"></span>
-                    <span>SYSTEM_OK // v1.0.4</span>
-                  </div>
-                  <span className="accent-text" style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>LIVE_FEED</span>
-                </div>
-                
-                {/* pricing switches nested here for isolated DOM modifications */}
-                <div className="console-header-right">
-                  <div className="currency-selector-box" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>CURRENCY:</span>
-                    <select 
-                      onChange={handleCurrencyChange} 
-                      className="currency-select"
-                      style={{ 
-                        background: 'rgba(8,17,22,0.6)', 
-                        border: '1px solid var(--color-border-subtle)',
-                        borderRadius: '4px',
-                        color: 'var(--color-mystic-mint)',
-                        fontSize: '0.7rem',
-                        padding: '2px 8px',
-                        fontFamily: 'var(--font-mono)',
-                        cursor: 'pointer'
-                      }}
-                      aria-label="Select pricing currency"
-                    >
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="INR">INR (₹)</option>
-                    </select>
-                  </div>
-                  
-                  <div className="billing-toggle-box" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>ANNUAL DISCOUNT:</span>
-                    <label className="switch">
-                      <input 
-                        type="checkbox" 
-                        onChange={handleBillingChange} 
-                        aria-label="Toggle annual billing discount"
-                      />
-                      <span className="slider round"></span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Console Main Dashboard */}
-              <div className="console-grid">
-                {/* Left Area: Canvas Chart */}
-                <div className="console-chart-wrapper">
-                  <div className="chart-header">
-                    <span className="chart-title">CAPITAL RUNWAY FORECAST</span>
-                    <div className="chart-legend">
-                      <div className="legend-item">
-                        <span className="legend-color-mint"></span>
-                        <span>HISTORICAL</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-color-gold"></span>
-                        <span>PROJECTED</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <canvas ref={forecastCanvasRef} className="console-chart-canvas" />
-                  
-                  <div className="console-slider-container">
-                    <div className="slider-labels">
-                      <span>HIGH BURN RATE</span>
-                      <span>NOMINAL</span>
-                      <span>MAX EFFICIENCY</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="10" 
-                      max="90" 
-                      defaultValue="50" 
-                      onChange={handleSliderChange}
-                      className="console-slider" 
-                      aria-label="Engine Allocation Slider"
-                    />
-                  </div>
-                </div>
-
-                {/* Right Area: Metric Grid and Advisory Log */}
-                <div className="console-side-panel">
-                  {/* Grid Tiles */}
-                  <div className="console-metrics-grid">
-                    <div className="console-metric-tile">
-                      <span className="metric-tile-label">Projected Runway</span>
-                      <span ref={runwayValRef} className="metric-tile-value text-gradient">24 Months</span>
-                      <span className="metric-tile-trend">▲ Runway Safe</span>
-                    </div>
-                    <div className="console-metric-tile">
-                      <span className="metric-tile-label">Projected Cost</span>
-                      <span ref={costValRef} className="metric-tile-value text-gradient">$18.5k/mo</span>
-                      <span className="metric-tile-trend neutral">● Edge Optimised</span>
-                    </div>
-                  </div>
-
-                  {/* AI Advisory Panel */}
-                  <div className="console-ai-box">
-                    <div className="ai-box-header">
-                      <svg className="ai-box-icon" viewBox="0 0 24 24">
-                        <use href="/icons.svg#icon-secure-guard"></use>
-                      </svg>
-                      <span>INTELLIGENT ADVISE //</span>
-                    </div>
-                     <div ref={aiAdviseRef} className="ai-box-text">
-                      {"AI ADVISOR >> Performance balanced. Allocation grid running at 50% capacity. Telemetry flows nominal."}
-                    </div>
-                  </div>
-
-                  {/* Micro Event trace logger */}
-                  <div ref={logPanelRef} className="console-log-feed">
-                    <div className="hud-log-line">
-                      <span className="hud-log-tag">[SYSTEM]</span>
-                      <span>Command center initialized...</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Seamless Infinite Client Logos Marquee */}
-            <div className="hero-brands-marquee">
+          {/* Client Marquee */}
+          <div className="client-marquee">
+            <div className="container">
+              <div className="marquee-title">Trusted by industry scale leaders</div>
               <div className="marquee-track">
-                {/* Set 1 */}
-                <div className="brand-logo-item">
-                  <svg className="brand-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                  <span>AETNA</span>
-                </div>
-                <div className="brand-logo-item">
-                  <svg className="brand-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2A10 10 0 0 0 2 12M12 4A8 8 0 0 1 20 12A8 8 0 0 1 12 20A8 8 0 0 1 4 12A8 8 0 0 1 12 4M12 6A6 6 0 0 0 6 12A6 6 0 0 0 12 18A6 6 0 0 0 18 12A6 6 0 0 0 12 6M12 8A4 4 0 0 1 16 12A4 4 0 0 1 12 16A4 4 0 0 1 8 12A4 4 0 0 1 12 8Z"/>
-                  </svg>
-                  <span>CIGNA</span>
-                </div>
-                <div className="brand-logo-item">
-                  <svg className="brand-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                  </svg>
-                  <span>ANTHEM</span>
-                </div>
-                {/* Duplicated for Marquee Loop */}
-                <div className="brand-logo-item">
-                  <svg className="brand-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                  <span>AETNA</span>
-                </div>
-                <div className="brand-logo-item">
-                  <svg className="brand-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2A10 10 0 0 0 2 12M12 4A8 8 0 0 1 20 12A8 8 0 0 1 12 20A8 8 0 0 1 4 12A8 8 0 0 1 12 4M12 6A6 6 0 0 0 6 12A6 6 0 0 0 12 18A6 6 0 0 0 18 12A6 6 0 0 0 12 6M12 8A4 4 0 0 1 16 12A4 4 0 0 1 12 16A4 4 0 0 1 8 12A4 4 0 0 1 12 8Z"/>
-                  </svg>
-                  <span>CIGNA</span>
-                </div>
-                <div className="brand-logo-item">
-                  <svg className="brand-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                  </svg>
-                  <span>ANTHEM</span>
-                </div>
+                {['Aetna', 'Cigna', 'Anthem', 'UnitedHealth', 'Humana', 'BlueCross', 'Aetna', 'Cigna', 'Anthem', 'UnitedHealth', 'Humana', 'BlueCross'].map((name, idx) => (
+                  <div key={idx} className="marquee-item">{name}</div>
+                ))}
               </div>
             </div>
           </div>
